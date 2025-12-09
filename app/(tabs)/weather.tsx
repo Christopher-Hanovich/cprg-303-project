@@ -14,7 +14,10 @@ export default function Weather() {
         <ScrollView style={styles.cityList}>
           {routeCities.map((city, index) => (
             <View key={index} style={styles.cityItem}>
-              <Text style={styles.cityText}>{city}</Text>
+              <Text style={styles.cityText}>{city.name}</Text>
+              <Text style={styles.coordsText}>
+                {city.latitude.toFixed(4)}°, {city.longitude.toFixed(4)}°
+              </Text>
             </View>
           ))}
         </ScrollView>
@@ -58,5 +61,10 @@ const styles = StyleSheet.create({
   cityText: {
     fontSize: 18,
     color: '#333',
+  },
+  coordsText: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 5,
   },
 });
