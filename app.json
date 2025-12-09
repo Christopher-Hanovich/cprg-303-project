@@ -12,6 +12,11 @@
       "supportsTablet": true
     },
     "android": {
+      "config": {
+        "googleMaps": {
+          "apiKey": "process.env.GOOGLE_MAPS_API_KEY"
+        }
+      },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -27,13 +32,8 @@
     },
     "plugins": [
       [
-        "react-native-maps",
-        {
-          "iosGoogleMapsApiKey": "YOUR_KEY_HERE",
-          "androidGoogleMapsApiKey": "YOUR_KEY_HERE"
-        }
-      ]
-      "expo-router",
+        "expo-router"
+      ],
       [
         "expo-splash-screen",
         {
