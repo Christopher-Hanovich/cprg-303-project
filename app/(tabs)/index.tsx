@@ -5,8 +5,8 @@ import { StyleSheet, View } from "react-native";
 import { GooglePlaceData, GooglePlaceDetail } from 'react-native-google-places-autocomplete';
 import MapView, { Polyline as MapPolyline, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import BottomSheet from "../../components/BottomSheet";
-import SearchBar from "../../components/SearchBar";
+import BottomSheet from "../components/BottomSheet";
+import SearchBar from "../components/SearchBar";
 
 // Use a public runtime env var. Define EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in your env.
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
