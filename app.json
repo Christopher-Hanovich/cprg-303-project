@@ -26,6 +26,13 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "react-native-maps",
+        {
+          "iosGoogleMapsApiKey": "YOUR_KEY_HERE",
+          "androidGoogleMapsApiKey": "YOUR_KEY_HERE"
+        }
+      ]
       "expo-router",
       [
         "expo-splash-screen",
@@ -37,6 +44,12 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(Weather Forecast Finder) to use your location."
         }
       ]
     ],
