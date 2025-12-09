@@ -1,7 +1,12 @@
-// Utility to collect distinct city names along a route by sampling coordinates
-// and reverse-geocoding them via the Google Geocoding API.
+// Utility to collect distinct cities with coordinates along a route by sampling and reverse-geocoding
 
 export type LatLng = { latitude: number; longitude: number };
+
+export type CityData = {
+	name: string;
+	latitude: number;
+	longitude: number;
+};
 
 type FetchCitiesAlongRouteArgs = {
 	points: LatLng[];
@@ -31,7 +36,7 @@ const geocodeCity = async (point: LatLng, apiKey: string): Promise<string | null
 	}
 };
 
-export const fetchCitiesAlongRoute = async ({ points, apiKey, step = 25 }: FetchCitiesAlongRouteArgs): Promise<string[]> => {
+export const fetchCitiesAlongRoute = async ({ points, apiKey, step = 25 }: FetchCitiesAlongRouteArgs): Promise<CityData[]> => {
 	if (!apiKey) throw new Error("Google API key is required");
 	if (!points?.length) return [];
 
@@ -45,13 +50,17 @@ export const fetchCitiesAlongRoute = async ({ points, apiKey, step = 25 }: Fetch
 	}
 
 	const seen = new Set<string>();
-	const cities: string[] = [];
+	const cities: CityData[] = [];
 
 	for (const pt of sampled) {
 		const city = await geocodeCity(pt, apiKey);
 		if (city && !seen.has(city)) {
 			seen.add(city);
-			cities.push(city);
+			cities.push({
+				name: city,
+				latitude: pt.latitude,
+				longitude: pt.longitude,
+			});
 		}
 	}
 
