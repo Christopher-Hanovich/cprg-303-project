@@ -36,7 +36,7 @@ const geocodeCity = async (point: LatLng, apiKey: string): Promise<string | null
 	}
 };
 
-export const fetchCitiesAlongRoute = async ({ points, apiKey, step = 25 }: FetchCitiesAlongRouteArgs): Promise<CityData[]> => {
+export const fetchCitiesAlongRoute = async ({ points, apiKey, step = 100 }: FetchCitiesAlongRouteArgs): Promise<CityData[]> => {
 	if (!apiKey) throw new Error("Google API key is required");
 	if (!points?.length) return [];
 

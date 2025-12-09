@@ -26,7 +26,7 @@ const defaultRegion = {
 
 const App = () => {
   const insets = useSafeAreaInsets();
-  const { setRouteCities } = useRoute();
+  const { setRouteCities, routeCities } = useRoute();
   //sets a reference to the map view
   const mapRef = React.useRef<MapView>(null);
   const autocompleteRef = React.useRef<any>(null);
@@ -123,6 +123,13 @@ const App = () => {
             strokeColor="#007AFF"
           />
         )}
+        {routeCities.map((city, index) => (
+          <Marker
+            key={`city-${index}`}
+            coordinate={{ latitude: city.latitude, longitude: city.longitude }}
+            title={city.name}
+          />
+        ))}
       </MapView>
       <SearchBar
         instanceKey={searchKey}
@@ -147,7 +154,7 @@ const App = () => {
           fetchRoute(start, markerCoordinate).then((points) => {
             setRouteCoords(points);
             if (points.length > 0) {
-              fetchCitiesAlongRoute({ points, apiKey: googleMapsApiKey, step: 25 })
+              fetchCitiesAlongRoute({ points, apiKey: googleMapsApiKey, step: 200 })
                 .then(setRouteCities)
                 .catch((err) => console.warn('Failed to fetch cities', err));
 
