@@ -2,11 +2,12 @@ import Polyline from '@mapbox/polyline';
 import * as location from 'expo-location';
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { GooglePlaceData, GooglePlaceDetail } from 'react-native-google-places-autocomplete';
 import MapView, { Polyline as MapPolyline, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomSheet from "../components/BottomSheet";
 import SearchBar from "../components/SearchBar";
+import { useRoute } from "../contexts/RouteContext";
+import { fetchCitiesAlongRoute } from "../utilities/placesAlongRoute";
 
 // Use a public runtime env var. Define EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in your env.
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -25,6 +26,7 @@ const defaultRegion = {
 
 const App = () => {
   const insets = useSafeAreaInsets();
+  const { setRouteCities } = useRoute();
   //sets a reference to the map view
   const mapRef = React.useRef<MapView>(null);
   const autocompleteRef = React.useRef<any>(null);
@@ -34,46 +36,9 @@ const App = () => {
   const [selectedPlace, setSelectedPlace] = useState<any>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [searchKey, setSearchKey] = useState(0);
   
-  //function to handle place selection from autocomplete
-  const handlePlaceSelect = async (data: GooglePlaceData, detail: GooglePlaceDetail | null) => {
-        console.log('Place selected:', data, detail);
-        // Always clear the input when a suggestion is tapped
-        autocompleteRef.current?.setAddressText('');
-
-        if (detail?.geometry?.location) {
-          setSelectedPlace({
-            latitude: detail.geometry.location.lat,
-            longitude: detail.geometry.location.lng,
-            title: data.structured_formatting.main_text,
-            address: data.structured_formatting.secondary_text,
-            placeId: data.place_id,
-          });
-          const { lat, lng } = detail.geometry.location;
-          console.log('Updating map to:', lat, lng);
-          const newRegion = {
-            latitude: lat,
-            longitude: lng,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          };
-          console.log('Animating to region:', newRegion);
-          mapRef.current?.animateToRegion(newRegion, 1000); // Animate map to selected location
-          setMarkerCoordinate({ latitude: lat, longitude: lng });
-
-          // Fetch and draw route from current region to selected place
-          const start = { latitude: region.latitude, longitude: region.longitude };
-          try {
-            const points = await fetchRoute(start, { latitude: lat, longitude: lng });
-            setRouteCoords(points);
-          } catch (err) {
-            console.warn('Failed to fetch route', err);
-            setRouteCoords([]);
-          }
-        } else {
-          console.warn('No geometry/location found in place details');
-        }
-  };
   //request location permission and get user location on mount
   useEffect(() => {
     const requestLocationPermission = async () => {
@@ -91,6 +56,10 @@ const App = () => {
           latitudeDelta: 0.0922,
           longitudeDelta: 0.0421,
         });
+        setUserLocation({
+          latitude: lastKnownLocation.coords.latitude,
+          longitude: lastKnownLocation.coords.longitude,
+        });
       }
     };
 
@@ -106,9 +75,10 @@ const App = () => {
       const data = await response.json();
       if (data.routes && data.routes.length > 0) {
         const points: { latitude: number; longitude: number }[] = Polyline.decode(data.routes[0].overview_polyline.points).map((point: [number, number]) => ({ latitude: point[0], longitude: point[1] }));
+        setShowBottomSheet(false);
         return points;
       } else {
-        console.warn('No routes found');
+        console.warn('No routes found', data.status, data.error_message);
         return [];
       }
     } catch (error) {
@@ -155,11 +125,15 @@ const App = () => {
         )}
       </MapView>
       <SearchBar
+        instanceKey={searchKey}
         apiKey={googleMapsApiKey}
         hasApiKey={hasApiKey}
         topInset={insets.top}
         autocompleteRef={autocompleteRef}
-        onPlaceSelect={handlePlaceSelect}
+        mapRef={mapRef as React.RefObject<MapView>}
+        setMarkerCoordinate={setMarkerCoordinate}
+        setSearchKey={setSearchKey}
+        onPlaceSelected={setSelectedPlace}
       />
       <BottomSheet
         visible={showBottomSheet}
@@ -168,9 +142,21 @@ const App = () => {
         bottomInset={insets.bottom}
         onClose={() => setShowBottomSheet(false)}
         onGetDirections={() => {
-          if (markerCoordinate) {
-            fetchRoute(region, markerCoordinate).then(setRouteCoords);
-          }
+          if (!markerCoordinate) return;
+          const start = userLocation ?? region;
+          fetchRoute(start, markerCoordinate).then((points) => {
+            setRouteCoords(points);
+            if (points.length > 0) {
+              fetchCitiesAlongRoute({ points, apiKey: googleMapsApiKey, step: 25 })
+                .then(setRouteCities)
+                .catch((err) => console.warn('Failed to fetch cities', err));
+
+              mapRef.current?.fitToCoordinates(points, {
+                edgePadding: { top: 80, right: 40, bottom: 200, left: 40 },
+                animated: true,
+              });
+            }
+          });
         }}
       />
     </View>
