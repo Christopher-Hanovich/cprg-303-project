@@ -1,14 +1,14 @@
 import Polyline from '@mapbox/polyline';
 import * as location from 'expo-location';
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View, Platform, ActivityIndicator, Text } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomSheet from "../components/BottomSheet";
+import PlatformMapView, { PlatformMarker, PlatformPolyline } from "../components/PlatformMapView";
 import SearchBar from "../components/SearchBar";
 import { useRoute } from "../contexts/RouteContext";
 import { fetchCitiesAlongRoute } from "../utilities/placesAlongRoute";
 import { fetchWeatherForCities } from "../utilities/weatherService";
-import PlatformMapView, { PlatformMarker, PlatformPolyline } from "../components/PlatformMapView";
 
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const hasApiKey = Boolean(googleMapsApiKey);
@@ -195,7 +195,7 @@ const App = () => {
         address={selectedPlace?.address}
         bottomInset={insets.bottom}
         onClose={() => setShowBottomSheet(false)}
-        onGetDirections={handleGetDirections}
+        onGetDirections={(handleGetDirections)}
       />
     </View>
   );
