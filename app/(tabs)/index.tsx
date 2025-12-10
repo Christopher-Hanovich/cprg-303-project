@@ -1,19 +1,17 @@
 import Polyline from '@mapbox/polyline';
 import * as location from 'expo-location';
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
-import MapView, { Polyline as MapPolyline, Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomSheet from "../components/BottomSheet";
+import PlatformMapView, { PlatformMarker, PlatformPolyline } from "../components/PlatformMapView";
 import SearchBar from "../components/SearchBar";
 import { useRoute } from "../contexts/RouteContext";
 import { fetchCitiesAlongRoute } from "../utilities/placesAlongRoute";
+import { fetchWeatherForCities } from "../utilities/weatherService";
 
-// Use a public runtime env var. Define EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in your env.
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const hasApiKey = Boolean(googleMapsApiKey);
-
-// Default region (SAIT, Calgary, Canada) in case user does not allow location access
 
 const defaultRegion = {
   latitude: 51.0641,
@@ -22,15 +20,12 @@ const defaultRegion = {
   longitudeDelta: 0.0421,
 };
 
-
-
 const App = () => {
   const insets = useSafeAreaInsets();
-  const { setRouteCities, routeCities } = useRoute();
-  //sets a reference to the map view
-  const mapRef = React.useRef<MapView>(null);
+  const { setRouteCities, routeCities, setWeatherData } = useRoute();
+  
+  const mapRef = React.useRef<any>(null);
   const autocompleteRef = React.useRef<any>(null);
-  //state to hold region and marker coordinate
   const [region, setRegion] = useState(defaultRegion);
   const [markerCoordinate, setMarkerCoordinate] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<any>(null);
@@ -38,9 +33,11 @@ const App = () => {
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [searchKey, setSearchKey] = useState(0);
+  const [loadingRoute, setLoadingRoute] = useState(false);
   
-  //request location permission and get user location on mount
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     const requestLocationPermission = async () => {
       let { status } = await location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -49,7 +46,6 @@ const App = () => {
       }
       let lastKnownLocation = await location.getLastKnownPositionAsync({});
       if (lastKnownLocation) {
-        console.log('User location:', lastKnownLocation);
         setRegion({
           latitude: lastKnownLocation.coords.latitude,
           longitude: lastKnownLocation.coords.longitude,
@@ -66,8 +62,14 @@ const App = () => {
     requestLocationPermission();
   }, []);
 
-  //function to fetch route between two points
   const fetchRoute = async (start: { latitude: number; longitude: number }, end: { latitude: number; longitude: number }) => {
+    if (Platform.OS === 'web') {
+      return [
+        { latitude: start.latitude, longitude: start.longitude },
+        { latitude: end.latitude, longitude: end.longitude }
+      ];
+    }
+
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${start.latitude},${start.longitude}&destination=${end.latitude},${end.longitude}&key=${googleMapsApiKey}`;
     
     try {
@@ -87,61 +89,106 @@ const App = () => {
     }
   };
 
+  const handleGetDirections = async () => {
+    if (!markerCoordinate) return;
+    const start = userLocation ?? region;
+    
+    setLoadingRoute(true);
+    const points = await fetchRoute(start, markerCoordinate);
+    setRouteCoords(points);
+    
+    if (points.length > 0) {
+      try {
+        // Fetch cities along route
+        const cities = await fetchCitiesAlongRoute({ 
+          points, 
+          apiKey: googleMapsApiKey, 
+          step: 200 
+        });
+        setRouteCities(cities);
+        
+        // Fetch weather for cities
+        const weather = await fetchWeatherForCities(cities);
+        setWeatherData(weather);
+        
+        // Fit map to route on native
+        if (Platform.OS !== 'web' && mapRef.current?.fitToCoordinates) {
+          mapRef.current?.fitToCoordinates(points, {
+            edgePadding: { top: 80, right: 40, bottom: 200, left: 40 },
+            animated: true,
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to fetch data:', err);
+      }
+    }
+    setLoadingRoute(false);
+  };
+
   const styles = StyleSheet.create({
-  container: {
-     flex: 1,
+    container: {
+      flex: 1,
       justifyContent: "center",
       alignItems: "center",
-  },
-  maps: {
-    width: "100%",
-    height: "100%",
-  },
-});
+    },
+    maps: {
+      width: "100%",
+      height: "100%",
+    },
+  });
+
   return (
-    <View
-      style={styles.container}
-    >
-      <MapView
+    <View style={styles.container}>
+      {loadingRoute && (
+        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 1000 }]}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={{ color: 'white', marginTop: 10 }}>Calculating route...</Text>
+        </View>
+      )}
+      
+      <PlatformMapView
         ref={mapRef}
         style={styles.maps}
-        provider={PROVIDER_GOOGLE}
         initialRegion={region}
-        showsUserLocation={true}
-        onRegionChangeComplete={setRegion}
+        showsUserLocation={Platform.OS !== 'web'}
+        onRegionChangeComplete={Platform.OS !== 'web' ? setRegion : undefined}
       >
         {markerCoordinate && (
-          <Marker
+          <PlatformMarker
             coordinate={markerCoordinate}
             onPress={() => setShowBottomSheet(true)}
           />
         )}
         {routeCoords.length > 0 && (
-          <MapPolyline
+          <PlatformPolyline
             coordinates={routeCoords}
             strokeWidth={4}
             strokeColor="#007AFF"
           />
         )}
         {routeCities.map((city, index) => (
-          <Marker
+          <PlatformMarker
             key={`city-${index}`}
             coordinate={{ latitude: city.latitude, longitude: city.longitude }}
             title={city.name}
           />
         ))}
-      </MapView>
-      <SearchBar
-        instanceKey={searchKey}
-        apiKey={googleMapsApiKey}
-        hasApiKey={hasApiKey}
-        topInset={insets.top}
-        autocompleteRef={autocompleteRef}
-        mapRef={mapRef as React.RefObject<MapView>}
-        setMarkerCoordinate={setMarkerCoordinate}
-        setSearchKey={setSearchKey}
-        onPlaceSelected={setSelectedPlace}
-      />
+      </PlatformMapView>
+      
+      {Platform.OS !== 'web' && (
+        <SearchBar
+          instanceKey={searchKey}
+          apiKey={googleMapsApiKey}
+          hasApiKey={hasApiKey}
+          topInset={insets.top}
+          autocompleteRef={autocompleteRef}
+          mapRef={mapRef}
+          setMarkerCoordinate={setMarkerCoordinate}
+          setSearchKey={setSearchKey}
+          onPlaceSelected={setSelectedPlace}
+        />
+      )}
+      
       <BottomSheet
         visible={showBottomSheet}
         title={selectedPlace?.title}
@@ -171,6 +218,3 @@ const App = () => {
 }
 
 export default App;
-
-
-
