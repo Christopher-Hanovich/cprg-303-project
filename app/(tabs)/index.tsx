@@ -195,23 +195,7 @@ const App = () => {
         address={selectedPlace?.address}
         bottomInset={insets.bottom}
         onClose={() => setShowBottomSheet(false)}
-        onGetDirections={() => {
-          if (!markerCoordinate) return;
-          const start = userLocation ?? region;
-          fetchRoute(start, markerCoordinate).then((points) => {
-            setRouteCoords(points);
-            if (points.length > 0) {
-              fetchCitiesAlongRoute({ points, apiKey: googleMapsApiKey, step: 200 })
-                .then(setRouteCities)
-                .catch((err) => console.warn('Failed to fetch cities', err));
-
-              mapRef.current?.fitToCoordinates(points, {
-                edgePadding: { top: 80, right: 40, bottom: 200, left: 40 },
-                animated: true,
-              });
-            }
-          });
-        }}
+        onGetDirections={(handleGetDirections)}
       />
     </View>
   );
